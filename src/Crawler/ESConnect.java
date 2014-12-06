@@ -21,6 +21,8 @@ import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
 import org.elasticsearch.index.Index;
 import org.json.simple.JSONObject;
+import org.json.simple.parser.JSONParser;
+import org.json.simple.parser.ParseException;
 
 /**
  *
@@ -41,13 +43,13 @@ public class ESConnect {
 	}
 
 	public void postElasticSearch(JSONObject jsn) throws Exception{
-		if (this.isMapping == false) throw new Exception("Pro tento index neexistuje mapping");
+		if (!isIndex()) throw new Exception("Pro tento index neexistuje mapping");
 		client.prepareIndex(this.indexName, jsn.get("type").toString(), jsn.get("id").toString())
 									.setSource(jsn).execute().actionGet();
 	}
 	
 	public void postElasticSearch(List<JSONObject> jsonList) throws Exception{
-		if (this.isMapping == false) throw new Exception("Pro tento index neexistuje mapping");
+		if (!isIndex()) throw new Exception("Pro tento index neexistuje mapping");
 		for (JSONObject jsnObj : jsonList){
 			client.prepareIndex(this.indexName, jsnObj.get("type").toString(), jsnObj.get("id").toString())
 									.setSource(jsnObj).execute().actionGet();
@@ -75,8 +77,13 @@ public class ESConnect {
 		}
 	}
 	
-	public void setIndexSettings(JSONObject analyzer){
+	public void createMapping(String documentType){
+		createMapping(documentType, prepareMapping(documentType));
+	}
+	
+	public void setIndexSettings(){
 		try {
+			JSONObject analyzer = getAnalyzer(this.indexName);
 			CloseIndexRequest cir = new CloseIndexRequest(this.indexName);
 			client.admin().indices().close(cir).actionGet();
 			
@@ -111,6 +118,80 @@ public class ESConnect {
 		lineJS.put("id",  id);
 
 		return lineJS;
+	}
+	
+		/**
+	 * Metoda vytvori mapovani pro analyzer k indexu a typu, ktery je specifikovan
+	 * 
+	 * @param index mapovani, ktere ma byt vytvoren
+	 * @param typ k namapovani
+	 */
+	public JSONObject prepareMapping(String typ) {
+		//String mappingBody = "{\"properties\": {\"czech\": {\"type\":\"string\",\"analyzer\": \"czech\"}}}";
+
+		JSONObject types = new JSONObject();
+
+			JSONObject tChild = new JSONObject();
+			tChild.put("type", "string");
+		types.put("type", tChild);
+
+			JSONObject child = new JSONObject();	
+			child.put("type", "string");
+			child.put("analyzer", "czech");
+		types.put("message", child);
+
+			JSONObject userId = new JSONObject();
+			userId.put("type", "string");
+		types.put("userId", userId);	
+
+			JSONObject userName = new JSONObject();
+			userName.put("type", "string");
+		types.put("userName", userName);	
+
+			JSONObject created = new JSONObject();
+			created.put("format", "yyyy-MM-dd HH:mm:ss");
+			created.put("type", "date");
+		types.put("created", created);	
+
+			JSONObject postId = new JSONObject();
+			postId.put("type", "string");
+		types.put("postId", postId);	
+
+			JSONObject likes = new JSONObject();
+			likes.put("type", "string");
+		types.put("likes", likes);	
+
+			JSONObject page = new JSONObject();
+			page.put("type", "string");
+		types.put("page", page);	
+		
+			JSONObject id = new JSONObject();
+			id.put("type", "string");
+		types.put("id", id);	
+
+		JSONObject mappingBody = new JSONObject();
+		mappingBody.put("properties", types);
+		
+		return mappingBody;
+	}
+	
+		/**
+	 * Metoda vytvori index v ES
+	 * 
+	 * @param index nazev indexu, ktery ma byt vytvoren
+	 */
+	public JSONObject getAnalyzer(String index) {
+		String analyzer = "{\"settings\": {\"analysis\": {\"filter\": {\"czech_stop\": {\"type\": \"stop\",\"stopwords\":  \"_czech_\"},\"czech_keywords\": {\"type\":       \"keyword_marker\",\"keywords\":   [\"x\"]}, \"czech_stemmer\": { \"type\":       \"stemmer\", \"language\":   \"czech\"}},\"analyzer\": {\"czech\": {\"tokenizer\":  \"standard\",\"filter\": [ \"lowercase\",\"czech_stop\", \"czech_keywords\", \"czech_stemmer\"]}}}}}";
+		//String analyzer = "{\"analysis\": {\"filter\": {\"czech_stop\": {\"type\": \"stop\",\"stopwords\":  \"_czech_\"},\"czech_keywords\": {\"type\":       \"keyword_marker\",\"keywords\":   [\"x\"]}, \"czech_stemmer\": { \"type\":       \"stemmer\", \"language\":   \"czech\"}},\"analyzer\": {\"czech\": {\"tokenizer\":  \"standard\",\"filter\": [ \"lowercase\",\"czech_stop\", \"czech_keywords\", \"czech_stemmer\"]}}}}";
+		JSONParser parser = new JSONParser();		
+	  Object obj = null;
+		try {
+			obj = parser.parse(analyzer);
+		} catch (ParseException ex) {
+			Logger.getLogger(ESConnect.class.getName()).log(Level.SEVERE, null, ex);
+		}
+		JSONObject jsonObject = (JSONObject) obj;
+		return jsonObject;
 	}
 }
 

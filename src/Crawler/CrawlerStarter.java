@@ -19,8 +19,8 @@ public class CrawlerStarter {
 		int crawlerCount = 1;
 
 		try {
-			BasicCrawlController mesec = new BasicCrawlController(tempStorage, crawlerCount, new String[]{"http://www.mesec.cz"}, BasicCrawlerMesec.class);
-			BasicCrawlController penize = new BasicCrawlController(tempStorage, crawlerCount, new String[]{"http://www.penize.cz"}, BasicCrawlerPenize.class);
+			BasicCrawlController mesec = new BasicCrawlController(tempStorage, crawlerCount, new String[]{"http://www.mesec.cz"}, 1);
+			BasicCrawlController penize = new BasicCrawlController(tempStorage, crawlerCount, new String[]{"http://www.penize.cz"}, 2);
 		} catch (Exception ex) {
 			Logger.getLogger(CrawlerStarter.class.getName()).log(Level.SEVERE, null, ex);
 		}

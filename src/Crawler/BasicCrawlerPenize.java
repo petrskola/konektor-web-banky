@@ -21,7 +21,6 @@ import edu.uci.ics.crawler4j.crawler.Page;
 import edu.uci.ics.crawler4j.crawler.WebCrawler;
 import edu.uci.ics.crawler4j.parser.HtmlParseData;
 import edu.uci.ics.crawler4j.url.WebURL;
-import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.DateFormat;
@@ -30,12 +29,10 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.List;
 
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-import org.apache.http.Header;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -47,18 +44,27 @@ import org.jsoup.select.Elements;
 public class BasicCrawlerPenize extends WebCrawler {
 	private String source = "penize.cz";
   private String indexName = "facebook2";
-	private ESConnect escon = new ESConnect(indexName);	
+	private ESConnect escon;
 	
-  private final static Pattern FILTERS = Pattern.compile(".*(\\.(css|js|bmp|gif|jpe?g" + "|png|tiff?|mid|mp2|mp3|mp4"
+	private final static Pattern FILTERS = Pattern.compile(".*(\\.(css|js|bmp|gif|jpe?g" + "|png|tiff?|mid|mp2|mp3|mp4"
       + "|wav|avi|mov|mpeg|ram|m4v|pdf" + "|rm|smil|wmv|swf|wma|zip|rar|gz))$");
 
+	public BasicCrawlerPenize() {
+		super();
+		this.escon = new ESConnect(this.indexName);
+		this.escon.createMapping("discussion");
+		this.escon.setIndexSettings();
+	}
+	
+	
   /**
    * You should implement this function to specify whether the given url
    * should be crawled or not (based on your crawling logic).
    */
-  public boolean shouldVisit(Page page, WebURL url) {
+	@Override
+  public boolean shouldVisit(WebURL url) {
     String href = url.getURL().toLowerCase();
-    return !FILTERS.matcher(href).matches() && href.startsWith("http://www.penize.cz/diskuze/");
+    return !FILTERS.matcher(href).matches() && href.startsWith("http://www.penize.cz/");
   }
 
   /**
@@ -76,7 +82,7 @@ public class BasicCrawlerPenize extends WebCrawler {
     String anchor = page.getWebURL().getAnchor();
 
     //System.out.println("Docid: " + docid);
-//    System.out.println("URL: " + url);
+    System.out.println("URL: " + url);
 //    System.out.println("Domain: '" + domain + "'");
 //    System.out.println("Sub-domain: '" + subDomain + "'");
 //    System.out.println("Path: '" + path + "'");
@@ -101,13 +107,13 @@ public class BasicCrawlerPenize extends WebCrawler {
 			
 			for (Element item : items ){
 				String[] meta = item.getElementsByTag("p").get(0).text().replace("\\s+", " ").replace("\u00a0"," ").split("[|]");
-				String dT = meta[0].trim();
-				String user = meta[1].trim();
+				String dT = meta[0].trim().replace("\\s+", " ").replace("\u00a0"," ");
+				String user = meta[1].trim().length() == 0?"noname":meta[1].trim();
 				
-				DateFormat formatter = new SimpleDateFormat("MM/dd/yy");
+				DateFormat formatter = new SimpleDateFormat("d.MM.yyyy HH:mm:ss");
 				Date dateTime = null;
 				try {
-					dateTime = formatter.parse("01/29/02");
+					dateTime = formatter.parse(dT + ":00");
 				} catch (ParseException ex) {
 					Logger.getLogger(BasicCrawlerMesec.class.getName()).log(Level.SEVERE, null, ex);
 				}
@@ -125,19 +131,20 @@ public class BasicCrawlerPenize extends WebCrawler {
 				messageDigest.update(unique.getBytes());
 				String encryptedString = new String(messageDigest.digest());
 				
-				escon.prepareJsonForIndex(user, dateTime, message, encryptedString, source);
+				try {
+					escon.postElasticSearch(escon.prepareJsonForIndex(user, dateTime, message, encryptedString, source));
+				} catch (Exception ex) {
+					Logger.getLogger(BasicCrawlerPenize.class.getName()).log(Level.SEVERE, null, ex);
+				}
 				//url
 				//domain
 				//path
-				System.out.println("message " + dateTime + " délka zprávy" + message.length());
+				//System.out.println("message " + dateTime + " délka zprávy" + message.length());
 			}
-			
 //      System.out.println("Text length: " + text.length());
 //      System.out.println("Html length: " + html.length());
 //      System.out.println("Number of outgoing links: " + links.size());
     }
-		
-		
 //    Header[] responseHeaders = page.getFetchResponseHeaders();
 //    if (responseHeaders != null) {
 //      System.out.println("Response headers:");

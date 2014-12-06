@@ -28,7 +28,7 @@ import edu.uci.ics.crawler4j.robotstxt.RobotstxtServer;
  */
 public class BasicCrawlController {
 
-  public BasicCrawlController(String tempStorage, int crawlerNumber, String[] seeds, Class crawler) throws Exception {
+  public BasicCrawlController(String tempStorage, int crawlerNumber, String[] seeds, int i) throws Exception {
   
     /*
      * crawlStorageFolder is a folder where intermediate crawl data is
@@ -50,7 +50,7 @@ public class BasicCrawlController {
      * Be polite: Make sure that we don't send more than 1 request per
      * second (1000 milliseconds between requests).
      */
-    config.setPolitenessDelay(20);
+    config.setPolitenessDelay(500);
 
     /*
      * You can set the maximum crawl depth here. The default value is -1 for
@@ -104,7 +104,11 @@ public class BasicCrawlController {
      * will reach the line after this only when crawling is finished.
      */
     //controller.start(BasicCrawlerPenize.class, numberOfCrawlers);
-		controller.start(crawler, numberOfCrawlers);
+		if (i==1){
+			controller.start(BasicCrawlerMesec.class, numberOfCrawlers);
+		}else{
+			controller.start(BasicCrawlerPenize.class, numberOfCrawlers);
+		}
 		
   }
 }

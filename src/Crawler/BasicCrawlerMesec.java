@@ -21,21 +21,19 @@ import edu.uci.ics.crawler4j.crawler.Page;
 import edu.uci.ics.crawler4j.crawler.WebCrawler;
 import edu.uci.ics.crawler4j.parser.HtmlParseData;
 import edu.uci.ics.crawler4j.url.WebURL;
-import java.io.IOException;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.DateFormat;
 import java.text.ParseException;
 import java.text.SimpleDateFormat;
+import java.util.Calendar;
 import java.util.Date;
 import java.util.List;
 
-import java.util.Set;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
-import org.apache.http.Header;
 import org.jsoup.Jsoup;
 import org.jsoup.nodes.Document;
 import org.jsoup.nodes.Element;
@@ -47,18 +45,29 @@ import org.jsoup.select.Elements;
 public class BasicCrawlerMesec extends WebCrawler {
 	private String source = "mesec.cz";
   private String indexName = "facebook2";
-	private ESConnect escon = new ESConnect(indexName);
-	
-  private final static Pattern FILTERS = Pattern.compile(".*(\\.(css|js|bmp|gif|jpe?g" + "|png|tiff?|mid|mp2|mp3|mp4"
+	private ESConnect escon;
+	private final static Pattern FILTERS = Pattern.compile(".*(\\.(css|js|bmp|gif|jpe?g" + "|png|tiff?|mid|mp2|mp3|mp4"
       + "|wav|avi|mov|mpeg|ram|m4v|pdf" + "|rm|smil|wmv|swf|wma|zip|rar|gz))$");
 
+	
+	public BasicCrawlerMesec() {
+		super();
+		this.escon = new ESConnect(this.indexName);
+		this.escon.setIndexSettings();
+		this.escon.createMapping("discussion");
+	}
+	  
   /**
    * You should implement this function to specify whether the given url
    * should be crawled or not (based on your crawling logic).
-   */
-  public boolean shouldVisit(Page page, WebURL url) {
+   */ 
+	@Override
+	public boolean shouldVisit(WebURL url) {
     String href = url.getURL().toLowerCase();
-    return !FILTERS.matcher(href).matches() && href.contains("mesec.cz/") && href.contains("/nazory/");
+    return !FILTERS.matcher(href).matches() && href.contains("mesec.cz/") //&& href.contains("/nazory/") 
+						&& !href.contains("http://forum.mesec.cz/") && !href.contains("odpovedet/") 
+						&& !href.contains("do=stocksSidebarDiscussions") && !href.contains("do=typeSwitch")
+						&& !href.contains("pridat");
   }
 
   /**
@@ -76,7 +85,8 @@ public class BasicCrawlerMesec extends WebCrawler {
     String anchor = page.getWebURL().getAnchor();
 
     //System.out.println("Docid: " + docid);
-    //System.out.println("URL: " + url);
+		System.out.println("URL: " + url);
+		
     //System.out.println("Domain: '" + domain + "'");
     //System.out.println("Sub-domain: '" + subDomain + "'");
     //System.out.println("Path: '" + path + "'");
@@ -90,7 +100,7 @@ public class BasicCrawlerMesec extends WebCrawler {
       List<WebURL> links = htmlParseData.getOutgoingUrls();
 			
   		Document doc = Jsoup.parse(html);
-			Elements items = doc.getElementsByClass("opinion-view clear new");
+			Elements items = doc.getElementsByAttributeValue("class", "opinion-view clear new");
 			
 			MessageDigest messageDigest = null;
 			try {
@@ -100,37 +110,48 @@ public class BasicCrawlerMesec extends WebCrawler {
 			}
 			
 			for (Element item : items ){
-				Elements userEl = item.getElementsByClass("opinion-info clear");
+				Elements userEl = item.getElementsByAttributeValue("class", "opinion-info clear");
 				String user = userEl.get(0).getElementsByTag("strong").get(0).text();
 				
-				Elements dateTimeEl = item.getElementsByClass("opinion-info clear");
-				String dT = dateTimeEl.get(0).getElementsByClass("date").get(0).text();
-				DateFormat formatter = new SimpleDateFormat("MM/dd/yy");
+				//3. 12. 2014 18:07
+			  DateFormat formatter = new SimpleDateFormat("d.MM.yyyy");
+				DateFormat formatter2 = new SimpleDateFormat("d.MM.yyyy H:mm:ss");
+				Elements dateTimeEl = item.getElementsByAttributeValue("class", "opinion-info clear");
+				String dT = dateTimeEl.get(0).getElementsByClass("date").get(0).text().replace("\\s+", " ").replace("\u00a0"," ");
+				
+				Date dt = new Date();
+				if (dT.contains("Včera")){
+					Calendar cal = Calendar.getInstance();
+					cal.add(Calendar.DATE, -1);
+					dt = cal.getTime();
+					formatter2 = new SimpleDateFormat("d.MM.yyyy H:mm:ss");
+				}
+				
 				Date dateTime = null;
 				try {
-					dateTime = formatter.parse("01/29/02");
+					dateTime = formatter2.parse(dT.replace("Včera", formatter.format(dt)).replace("Dnes", formatter.format(dt))+":00");
 				} catch (ParseException ex) {
 					Logger.getLogger(BasicCrawlerMesec.class.getName()).log(Level.SEVERE, null, ex);
 				}
 											
-				Elements messageEl = item.getElementsByClass("text");
+				Elements messageEl = item.getElementsByAttributeValue("class", "text");
 				String message = messageEl.get(0).text();
 				
 				String unique = dateTime+message;
 				messageDigest.update(unique.getBytes());
 				String encryptedString = new String(messageDigest.digest());
 				
-				escon.prepareJsonForIndex(user, dateTime, message, encryptedString, source);
+				try {
+					escon.postElasticSearch(escon.prepareJsonForIndex(user, dateTime, message, encryptedString, source));
+				} catch (Exception ex) {
+					Logger.getLogger(BasicCrawlerMesec.class.getName()).log(Level.SEVERE, null, ex);
+				}
 				
-				System.out.println("message " + dateTime + " délka zprávy" + message.length());
+				//System.out.println("message " + dateTime + " délka zprávy" + message.length());
 				//url
 				//domain
 				//path
-			}
-			
-			
-			
-			
+			}			
       //System.out.println("Text length: " + text.length());
       //System.out.println("Html length: " + html.length());
       //System.out.println("Number of outgoing links: " + links.size());
