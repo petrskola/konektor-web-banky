@@ -50,7 +50,7 @@ public class BasicCrawlController {
      * Be polite: Make sure that we don't send more than 1 request per
      * second (1000 milliseconds between requests).
      */
-    config.setPolitenessDelay(500);
+    config.setPolitenessDelay(100);
 
     /*
      * You can set the maximum crawl depth here. The default value is -1 for
@@ -62,7 +62,7 @@ public class BasicCrawlController {
      * You can set the maximum number of pages to crawl. The default value
      * is -1 for unlimited number of pages
      */
-    config.setMaxPagesToFetch(100000);
+    config.setMaxPagesToFetch(10000);
 
     /*
      * Do you need to set a proxy? If so, you can use:

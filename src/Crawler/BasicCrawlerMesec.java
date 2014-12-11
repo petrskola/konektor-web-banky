@@ -21,6 +21,7 @@ import edu.uci.ics.crawler4j.crawler.Page;
 import edu.uci.ics.crawler4j.crawler.WebCrawler;
 import edu.uci.ics.crawler4j.parser.HtmlParseData;
 import edu.uci.ics.crawler4j.url.WebURL;
+import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.DateFormat;
@@ -44,17 +45,16 @@ import org.jsoup.select.Elements;
  */
 public class BasicCrawlerMesec extends WebCrawler {
 	private String source = "mesec.cz";
-  private String indexName = "facebook2";
-	private ESConnect escon;
+  private ESConnect escon;
 	private final static Pattern FILTERS = Pattern.compile(".*(\\.(css|js|bmp|gif|jpe?g" + "|png|tiff?|mid|mp2|mp3|mp4"
       + "|wav|avi|mov|mpeg|ram|m4v|pdf" + "|rm|smil|wmv|swf|wma|zip|rar|gz))$");
 
-	
 	public BasicCrawlerMesec() {
 		super();
-		this.escon = new ESConnect(this.indexName);
-		this.escon.setIndexSettings();
-		this.escon.createMapping("discussion");
+		escon = new ESConnect("banky");
+		//this.escon.createIndex();
+		//this.escon.createMapping("discussion");
+		//this.escon.setIndexSettings();
 	}
 	  
   /**
@@ -67,7 +67,7 @@ public class BasicCrawlerMesec extends WebCrawler {
     return !FILTERS.matcher(href).matches() && href.contains("mesec.cz/") //&& href.contains("/nazory/") 
 						&& !href.contains("http://forum.mesec.cz/") && !href.contains("odpovedet/") 
 						&& !href.contains("do=stocksSidebarDiscussions") && !href.contains("do=typeSwitch")
-						&& !href.contains("pridat");
+						&& !href.contains("pridat");//&& !href.contains("obcansky-zakonik");
   }
 
   /**
@@ -137,12 +137,12 @@ public class BasicCrawlerMesec extends WebCrawler {
 				Elements messageEl = item.getElementsByAttributeValue("class", "text");
 				String message = messageEl.get(0).text();
 				
-				String unique = dateTime+message;
-				messageDigest.update(unique.getBytes());
-				String encryptedString = new String(messageDigest.digest());
-				
+				String unique = dateTime+message+source;
+				messageDigest.update(unique.getBytes(), 0 , unique.length());
+				String encryptedString = new BigInteger(1, messageDigest.digest()).toString();
+								
 				try {
-					escon.postElasticSearch(escon.prepareJsonForIndex(user, dateTime, message, encryptedString, source));
+					escon.postElasticSearch(escon.prepareJsonForIndex(user, dateTime, message, encryptedString, source, url));
 				} catch (Exception ex) {
 					Logger.getLogger(BasicCrawlerMesec.class.getName()).log(Level.SEVERE, null, ex);
 				}

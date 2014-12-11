@@ -21,6 +21,7 @@ import edu.uci.ics.crawler4j.crawler.Page;
 import edu.uci.ics.crawler4j.crawler.WebCrawler;
 import edu.uci.ics.crawler4j.parser.HtmlParseData;
 import edu.uci.ics.crawler4j.url.WebURL;
+import java.math.BigInteger;
 import java.security.MessageDigest;
 import java.security.NoSuchAlgorithmException;
 import java.text.DateFormat;
@@ -43,19 +44,17 @@ import org.jsoup.select.Elements;
  */
 public class BasicCrawlerPenize extends WebCrawler {
 	private String source = "penize.cz";
-  private String indexName = "facebook2";
 	private ESConnect escon;
-	
 	private final static Pattern FILTERS = Pattern.compile(".*(\\.(css|js|bmp|gif|jpe?g" + "|png|tiff?|mid|mp2|mp3|mp4"
       + "|wav|avi|mov|mpeg|ram|m4v|pdf" + "|rm|smil|wmv|swf|wma|zip|rar|gz))$");
 
 	public BasicCrawlerPenize() {
 		super();
-		this.escon = new ESConnect(this.indexName);
-		this.escon.createMapping("discussion");
-		this.escon.setIndexSettings();
-	}
-	
+		this.escon = new ESConnect("banky");
+		//this.escon.createIndex();
+		//this.escon.createMapping("discussion");
+		//this.escon.setIndexSettings();
+	}	
 	
   /**
    * You should implement this function to specify whether the given url
@@ -108,7 +107,7 @@ public class BasicCrawlerPenize extends WebCrawler {
 			for (Element item : items ){
 				String[] meta = item.getElementsByTag("p").get(0).text().replace("\\s+", " ").replace("\u00a0"," ").split("[|]");
 				String dT = meta[0].trim().replace("\\s+", " ").replace("\u00a0"," ");
-				String user = meta[1].trim().length() == 0?"noname":meta[1].trim();
+				String user = meta[1].length() == 0?"noname":meta[1].trim();
 				
 				DateFormat formatter = new SimpleDateFormat("d.MM.yyyy HH:mm:ss");
 				Date dateTime = null;
@@ -117,22 +116,19 @@ public class BasicCrawlerPenize extends WebCrawler {
 				} catch (ParseException ex) {
 					Logger.getLogger(BasicCrawlerMesec.class.getName()).log(Level.SEVERE, null, ex);
 				}
-				
-				Elements nameEL = item.getElementsByAttributeValue("itemprop", "name");
-				String name = nameEL.get(0).text();
-				
+								
 				Elements messageEl = item.getElementsByAttributeValueStarting("id", "commenttext_");
 				String message = messageEl.get(0).text();
 				
 				Elements ratingEl = item.getElementsByAttributeValueMatching("class", "rating comment clearfix");
 				String rating = ratingEl.get(0).getElementsByAttributeValueStarting("class", "value").get(0).text();
 				
-			  String unique = dateTime+message;
-				messageDigest.update(unique.getBytes());
-				String encryptedString = new String(messageDigest.digest());
-				
+			  String unique = dateTime+message+source;
+				messageDigest.update(unique.getBytes(), 0 , unique.length());
+				String encryptedString = new BigInteger(1, messageDigest.digest()).toString();
+			
 				try {
-					escon.postElasticSearch(escon.prepareJsonForIndex(user, dateTime, message, encryptedString, source));
+					escon.postElasticSearch(escon.prepareJsonForIndex(user, dateTime, message, encryptedString, source, url));
 				} catch (Exception ex) {
 					Logger.getLogger(BasicCrawlerPenize.class.getName()).log(Level.SEVERE, null, ex);
 				}

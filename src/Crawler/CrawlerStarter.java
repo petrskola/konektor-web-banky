@@ -18,7 +18,7 @@ public class CrawlerStarter {
 		String tempStorage = "c:\\ES\\konektor-web-banky\\temp\\";
 		int crawlerCount = 1;
 
-		try {
+		try {	
 			BasicCrawlController mesec = new BasicCrawlController(tempStorage, crawlerCount, new String[]{"http://www.mesec.cz"}, 1);
 			BasicCrawlController penize = new BasicCrawlController(tempStorage, crawlerCount, new String[]{"http://www.penize.cz"}, 2);
 		} catch (Exception ex) {

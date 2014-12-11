@@ -6,7 +6,6 @@ package Crawler;
 
 import java.text.Format;
 import java.text.SimpleDateFormat;
-import java.util.ArrayList;
 import java.util.Date;
 import java.util.List;
 import java.util.logging.Level;
@@ -19,7 +18,6 @@ import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
-import org.elasticsearch.index.Index;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -62,7 +60,9 @@ public class ESConnect {
 	}
 	
 	public void createIndex(){
-		client.admin().indices().prepareCreate(this.indexName).execute().actionGet();
+		if (!isIndex()) {
+			client.admin().indices().prepareCreate(this.indexName).execute().actionGet();
+		}	
 	}
 		
 	public void createMapping(String documentType, JSONObject mapping){
@@ -70,6 +70,7 @@ public class ESConnect {
 			PutMappingRequest pmr = new PutMappingRequest(this.indexName);
 			pmr.source(mapping);
 			pmr.type(documentType);
+			//pmr.ignoreConflicts(true);
 			client.admin().indices().putMapping(pmr).actionGet();		
 			this.isMapping = true;
 		} catch (Exception e) {
@@ -103,18 +104,20 @@ public class ESConnect {
 		client.close();
 	}
 	
-	public JSONObject prepareJsonForIndex(String user, Date dateTime, String message, String id, String source) {
+	public JSONObject prepareJsonForIndex(String user, Date dateTime, String message, String id, String source, String url) {
 		Format f = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
 		JSONObject lineJS = new JSONObject();
 		lineJS.put("message", message);
 		lineJS.put("userId", user);
 		lineJS.put("userName", user);
+		lineJS.put("userName.raw", user);
 		lineJS.put("created", f.format(dateTime));
-		//lineJS.put("caption", post.getCaption());
-		//lineJS.put("posttype", post.getType());
+		lineJS.put("level", 0);
+		lineJS.put("url", url);
 		lineJS.put("type", "discussion");
 		lineJS.put("page", source);
+		lineJS.put("page.raw", source);
 		lineJS.put("id",  id);
 
 		return lineJS;
@@ -130,15 +133,10 @@ public class ESConnect {
 		//String mappingBody = "{\"properties\": {\"czech\": {\"type\":\"string\",\"analyzer\": \"czech\"}}}";
 
 		JSONObject types = new JSONObject();
-
-			JSONObject tChild = new JSONObject();
-			tChild.put("type", "string");
-		types.put("type", tChild);
-
-			JSONObject child = new JSONObject();	
-			child.put("type", "string");
-			child.put("analyzer", "czech");
-		types.put("message", child);
+			JSONObject message = new JSONObject();	
+			message.put("type", "string");
+			message.put("analyzer", "czech");
+		types.put("message", message);
 
 			JSONObject userId = new JSONObject();
 			userId.put("type", "string");
@@ -148,6 +146,11 @@ public class ESConnect {
 			userName.put("type", "string");
 		types.put("userName", userName);	
 
+			JSONObject userNameRaw = new JSONObject();
+			userNameRaw.put("type", "string");
+			userNameRaw.put("index" , "not_analyzed");
+		types.put("userName.raw", userNameRaw);			
+		
 			JSONObject created = new JSONObject();
 			created.put("format", "yyyy-MM-dd HH:mm:ss");
 			created.put("type", "date");
@@ -164,11 +167,29 @@ public class ESConnect {
 			JSONObject page = new JSONObject();
 			page.put("type", "string");
 		types.put("page", page);	
+
+			JSONObject pageRaw = new JSONObject();
+			pageRaw.put("type", "string");
+			pageRaw.put("index" , "not_analyzed");
+		types.put("page.raw", pageRaw);	
 		
 			JSONObject id = new JSONObject();
 			id.put("type", "string");
 		types.put("id", id);	
+		
+			JSONObject url = new JSONObject();
+			url.put("type", "string");
+		types.put("url", url);	
+		
+			JSONObject urlRaw = new JSONObject();
+			urlRaw.put("type", "string");
+			urlRaw.put("index" , "not_analyzed");
+		types.put("url.raw", urlRaw);	
 
+			JSONObject level = new JSONObject();
+			level.put("type", "long");
+		types.put("level", level);	
+		
 		JSONObject mappingBody = new JSONObject();
 		mappingBody.put("properties", types);
 		
@@ -194,4 +215,3 @@ public class ESConnect {
 		return jsonObject;
 	}
 }
-
