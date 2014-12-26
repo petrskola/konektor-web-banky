@@ -41,7 +41,6 @@ public class ESConnect {
 	}
 
 	public void postElasticSearch(JSONObject jsn) throws Exception{
-		jsn.put("source", "Web");
 		if (!isIndex()) throw new Exception("Pro tento index neexistuje mapping");
 		client.prepareIndex(this.indexName, jsn.get("type").toString(), jsn.get("id").toString())
 									.setSource(jsn).execute().actionGet();
@@ -50,7 +49,6 @@ public class ESConnect {
 	public void postElasticSearch(List<JSONObject> jsonList) throws Exception{
 		if (!isIndex()) throw new Exception("Pro tento index neexistuje mapping");
 		for (JSONObject jsnObj : jsonList){
-			jsnObj.put("source", "Web");
 			client.prepareIndex(this.indexName, jsnObj.get("type").toString(), jsnObj.get("id").toString())
 									.setSource(jsnObj).execute().actionGet();
 		}
