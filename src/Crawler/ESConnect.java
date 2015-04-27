@@ -4,6 +4,9 @@
  */
 package Crawler;
 
+import java.math.BigInteger;
+import java.security.MessageDigest;
+import java.security.NoSuchAlgorithmException;
 import java.text.Format;
 import java.text.SimpleDateFormat;
 import java.util.Date;
@@ -17,7 +20,10 @@ import org.elasticsearch.action.admin.indices.open.OpenIndexRequest;
 import org.elasticsearch.action.admin.indices.settings.put.UpdateSettingsRequest;
 import org.elasticsearch.client.Client;
 import org.elasticsearch.client.transport.TransportClient;
+import org.elasticsearch.common.settings.ImmutableSettings;
 import org.elasticsearch.common.transport.InetSocketTransportAddress;
+import org.elasticsearch.node.Node;
+import static org.elasticsearch.node.NodeBuilder.nodeBuilder;
 import org.json.simple.JSONObject;
 import org.json.simple.parser.JSONParser;
 import org.json.simple.parser.ParseException;
@@ -29,15 +35,24 @@ import org.json.simple.parser.ParseException;
 public class ESConnect {
 	private Client client;
 	private String indexName;
+  private Node node = null;
 	private boolean isMapping;
 		
-	public ESConnect (String indexName){
-			Client client = new TransportClient().addTransportAddress(new InetSocketTransportAddress("localhost",9300));
-			this.client = client;
-			this.indexName = indexName;
-			if (!isIndex()){
-				this.isMapping = false;
-			}
+	public ESConnect (String indexName, String ip, String clusterName){ 
+    Client client;
+    if (ip.length() > 0){
+      if (clusterName.length() > 0){
+        org.elasticsearch.common.settings.Settings settings = ImmutableSettings.settingsBuilder().put("cluster.name", clusterName).put("client.transport.sniff", true).build();
+        client = new TransportClient(settings).addTransportAddress(new InetSocketTransportAddress(ip,9300));
+      }else{
+        client = new TransportClient().addTransportAddress(new InetSocketTransportAddress(ip,9300));
+      }
+      this.client = client;
+    }else if (clusterName.length() > 0){
+      node = nodeBuilder().client(true).clusterName(clusterName).node();
+      this.client = node.client();
+    }
+		this.indexName = indexName;
 	}
 
 	public void postElasticSearch(JSONObject jsn) throws Exception{
@@ -109,9 +124,18 @@ public class ESConnect {
 	public JSONObject prepareJsonForIndex(String user, Date dateTime, String message, String id, String source, String url) {
 		Format f = new SimpleDateFormat("yyyy-MM-dd HH:mm:ss");
 
+		MessageDigest messageDigest = null;
+		try {
+			messageDigest = MessageDigest.getInstance("MD5");
+		} catch (NoSuchAlgorithmException ex) {
+			Logger.getLogger(BasicCrawlerMesec.class.getName()).log(Level.SEVERE, null, ex);
+		}
+		messageDigest.update(user.getBytes(), 0 , user.length());
+		String userHash = new BigInteger(1, messageDigest.digest()).toString();
+		
 		JSONObject lineJS = new JSONObject();
 		lineJS.put("message", message);
-		lineJS.put("userId", user);
+		lineJS.put("userId", userHash);
 		lineJS.put("userName", user);
 		lineJS.put("userName.raw", user);
 		lineJS.put("created", f.format(dateTime));
@@ -134,24 +158,43 @@ public class ESConnect {
 	public JSONObject prepareMapping(String typ) {
 		//String mappingBody = "{\"properties\": {\"czech\": {\"type\":\"string\",\"analyzer\": \"czech\"}}}";
 
+    JSONObject stringNotAnalyzed = new JSONObject();
+    stringNotAnalyzed.put("index", "not_analyzed");
+    stringNotAnalyzed.put("type", "string");
+
+    JSONObject stringAnalyzed = new JSONObject();
+    stringAnalyzed.put("index", "analyzed");
+    stringAnalyzed.put("type", "string");
+    
+    JSONObject stringAnalyzedCZ = new JSONObject();
+    stringAnalyzedCZ.put("index", "analyzed");
+    stringAnalyzedCZ.put("analyzer", "czech");
+    stringAnalyzedCZ.put("type", "string");
+    
 		JSONObject types = new JSONObject();
-			JSONObject message = new JSONObject();	
-			message.put("type", "string");
-			message.put("analyzer", "czech");
-		types.put("message", message);
+//			JSONObject message = new JSONObject();	
+//			message.put("type", "string");
+//			message.put("analyzer", "czech");
+		types.put("message", stringAnalyzedCZ);
+    
+    JSONObject messageRaw = new JSONObject();
+    messageRaw.putAll(stringNotAnalyzed);
+    types.put("messageRaw", messageRaw);
 
 			JSONObject userId = new JSONObject();
 			userId.put("type", "string");
 		types.put("userId", userId);	
 
-			JSONObject userName = new JSONObject();
-			userName.put("type", "string");
-		types.put("userName", userName);	
-
-			JSONObject userNameRaw = new JSONObject();
-			userNameRaw.put("type", "string");
-			userNameRaw.put("index" , "not_analyzed");
-		types.put("userName.raw", userNameRaw);			
+//			JSONObject userName = new JSONObject();
+//			userName.put("type", "string");
+//		types.put("userName", userName);	
+    
+    types.put("userName", stringNotAnalyzed);
+//
+//			JSONObject userNameRaw = new JSONObject();
+//			userNameRaw.put("type", "string");
+//			userNameRaw.put("index" , "not_analyzed");
+//		types.put("userName.raw", userNameRaw);			
 		
 			JSONObject created = new JSONObject();
 			created.put("format", "yyyy-MM-dd HH:mm:ss");
@@ -163,17 +206,17 @@ public class ESConnect {
 		types.put("postId", postId);	
 
 			JSONObject likes = new JSONObject();
-			likes.put("type", "string");
+			likes.put("type", "long");
 		types.put("likes", likes);	
 
-			JSONObject page = new JSONObject();
-			page.put("type", "string");
-		types.put("page", page);	
+//			JSONObject page = new JSONObject();
+//			page.put("type", "string");
+//		types.put("page", page);	
 
 			JSONObject pageRaw = new JSONObject();
 			pageRaw.put("type", "string");
 			pageRaw.put("index" , "not_analyzed");
-		types.put("page.raw", pageRaw);	
+		types.put("page", pageRaw);	
 		
 			JSONObject id = new JSONObject();
 			id.put("type", "string");
@@ -191,6 +234,14 @@ public class ESConnect {
 			JSONObject level = new JSONObject();
 			level.put("type", "long");
 		types.put("level", level);	
+
+			JSONObject sent = new JSONObject();
+			sent.put("type", "string");
+		types.put("sentiment", sent);	
+		
+			JSONObject sentWeight = new JSONObject();
+			sentWeight.put("type", "long");
+		types.put("sentimentWeight", sentWeight);	
 		
 		JSONObject mappingBody = new JSONObject();
 		mappingBody.put("properties", types);

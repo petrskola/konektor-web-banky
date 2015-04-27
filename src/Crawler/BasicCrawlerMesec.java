@@ -51,9 +51,9 @@ public class BasicCrawlerMesec extends WebCrawler {
 
 	public BasicCrawlerMesec() {
 		super();
-		escon = new ESConnect("banky");
+		escon = new ESConnect("banky","10.0.0.109","elasticsearch");
 		//this.escon.createIndex();
-		//this.escon.createMapping("discussion");
+		this.escon.createMapping("discussion");
 		//this.escon.setIndexSettings();
 	}
 	  
@@ -67,7 +67,7 @@ public class BasicCrawlerMesec extends WebCrawler {
     return !FILTERS.matcher(href).matches() && href.contains("mesec.cz/") //&& href.contains("/nazory/") 
 						&& !href.contains("http://forum.mesec.cz/") && !href.contains("odpovedet/") 
 						&& !href.contains("do=stocksSidebarDiscussions") && !href.contains("do=typeSwitch")
-						&& !href.contains("pridat");//&& !href.contains("obcansky-zakonik");
+						&& !href.contains("pridat") && !href.contains("/zakony/") && !href.contains("/poptavky/");
   }
 
   /**
@@ -84,16 +84,9 @@ public class BasicCrawlerMesec extends WebCrawler {
     String parentUrl = page.getWebURL().getParentUrl();
     String anchor = page.getWebURL().getAnchor();
 
-    //System.out.println("Docid: " + docid);
 		System.out.println("URL: " + url);
 		
-    //System.out.println("Domain: '" + domain + "'");
-    //System.out.println("Sub-domain: '" + subDomain + "'");
-    //System.out.println("Path: '" + path + "'");
-    //System.out.println("Parent page: " + parentUrl);
-    //System.out.println("Anchor text: " + anchor);
-
-    if (page.getParseData() instanceof HtmlParseData) {
+		if (page.getParseData() instanceof HtmlParseData) {
       HtmlParseData htmlParseData = (HtmlParseData) page.getParseData();
       String text = htmlParseData.getText();
       String html = htmlParseData.getHtml();
@@ -146,26 +139,7 @@ public class BasicCrawlerMesec extends WebCrawler {
 				} catch (Exception ex) {
 					Logger.getLogger(BasicCrawlerMesec.class.getName()).log(Level.SEVERE, null, ex);
 				}
-				
-				//System.out.println("message " + dateTime + " délka zprávy" + message.length());
-				//url
-				//domain
-				//path
 			}			
-      //System.out.println("Text length: " + text.length());
-      //System.out.println("Html length: " + html.length());
-      //System.out.println("Number of outgoing links: " + links.size());
     }
-		
-		
-//    Header[] responseHeaders = page.getFetchResponseHeaders();
-//    if (responseHeaders != null) {
-//      System.out.println("Response headers:");
-//      for (Header header : responseHeaders) {
-//        System.out.println("\t" + header.getName() + ": " + header.getValue());
-//      }
-//    }
-
-    //System.out.println("=============");
-  }
+	}
 }

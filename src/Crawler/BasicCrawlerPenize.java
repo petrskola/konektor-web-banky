@@ -50,7 +50,7 @@ public class BasicCrawlerPenize extends WebCrawler {
 
 	public BasicCrawlerPenize() {
 		super();
-		this.escon = new ESConnect("banky");
+		this.escon = new ESConnect("banky","10.0.0.109","elasticsearch");
 		//this.escon.createIndex();
 		//this.escon.createMapping("discussion");
 		//this.escon.setIndexSettings();
@@ -96,6 +96,8 @@ public class BasicCrawlerPenize extends WebCrawler {
 			
   		Document doc = Jsoup.parse(html);
 			Elements items = doc.getElementsByAttributeValueStarting("id","comment_");
+			Elements itemsbw =  doc.getElementsByAttributeValueStarting("id","bw_comment_");
+			items.addAll(itemsbw);
 			
 			MessageDigest messageDigest = null;
 			try {
@@ -105,9 +107,9 @@ public class BasicCrawlerPenize extends WebCrawler {
 			}			
 			
 			for (Element item : items ){
-				String[] meta = item.getElementsByTag("p").get(0).text().replace("\\s+", " ").replace("\u00a0"," ").split("[|]");
+				String[] meta = item.getElementsByClass("info").get(0).text().replace("\\s+", " ").replace("\u00a0"," ").replace(",", "|").split("[|]");
 				String dT = meta[0].trim().replace("\\s+", " ").replace("\u00a0"," ");
-				String user = meta[1].length() == 0?"noname":meta[1].trim();
+				String user = meta.length == 1 || meta[1].length() == 0?"noname":meta[1].trim();
 				
 				DateFormat formatter = new SimpleDateFormat("d.MM.yyyy HH:mm:ss");
 				Date dateTime = null;
@@ -117,7 +119,7 @@ public class BasicCrawlerPenize extends WebCrawler {
 					Logger.getLogger(BasicCrawlerMesec.class.getName()).log(Level.SEVERE, null, ex);
 				}
 								
-				Elements messageEl = item.getElementsByAttributeValueStarting("id", "commenttext_");
+				Elements messageEl = item.getElementsByAttributeValueContaining("id", "commenttext_");
 				String message = messageEl.get(0).text();
 				
 				Elements ratingEl = item.getElementsByAttributeValueMatching("class", "rating comment clearfix");
